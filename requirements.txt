@@ -1,0 +1,17 @@
+torch==1.12.1
+tqdm
+numpy==1.23
+pandas
+scikit-learn==1.1.2
+transformers==4.22.2
+datasets==2.5.2
+matplotlib
+soundfile
+librosa
+scipy
+# xgboost
+# 
+# catboost
+imbalanced-learn
+# wheel
+# lightgbm
