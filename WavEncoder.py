@@ -16,7 +16,7 @@ from typing import List, Dict, Any, Union
 
 from datasets import load_dataset, Dataset, DatasetDict, load_from_disk
 from transformers.data.data_collator import DataCollatorWithPadding
-from transformers import AutoProcessor, AutoFeatureExtractor, AutoConfig, PreTrainedModel, TrainingArguments, Trainer, Wav2Vec2Model, Wav2Vec2FeatureExtractor, WavLMModel
+from transformers import AutoProcessor, AutoFeatureExtractor, AutoConfig, PreTrainedModel, TrainingArguments, Trainer, Wav2Vec2Model, Wav2Vec2FeatureExtractor, WavLMModel, Wav2Vec2Processor
 from sklearn.metrics import accuracy_score, recall_score, confusion_matrix, balanced_accuracy_score
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
@@ -27,6 +27,9 @@ logging.getLogger().setLevel(logging.INFO)
 mapping = {0:'train',
            1:'public', 
            2:'private'}
+t_mapping = {0:48000,
+             1:32000, 
+             2:48000}
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument(
@@ -91,12 +94,12 @@ def get_dataset(path: str, df_MH: pd.DataFrame) -> Dataset:
     stats = pd.DataFrame(metalist, index=id_list)
     return Dataset.from_list(datalist), df_MH.join(stats).fillna(0)
 
-def preprocess_function(data, feature_extractor):
+def preprocess_function(data, feature_extractor, max_len=48000):
     audio_arrays = [x["array"] for x in data["audio"]]
     inputs = feature_extractor(
         audio_arrays,
         sampling_rate=feature_extractor.sampling_rate,
-        max_length=48000,
+        max_length=max_len,
         truncation=True,
         padding=True,
         return_tensors="pt"
@@ -108,9 +111,10 @@ if __name__ == "__main__":
     outpath = args.output_path
     os.makedirs(outpath, exist_ok=True)
 
-    ## Pretrained WavLM
+    # Pretrained WavLM
+    logging.info(f'Loding Pretrained WavLMModel')
     PRETRAINED_PATH = "microsoft/wavlm-base-plus"
-    processor = AutoProcessor.from_pretrained("patrickvonplaten/wavlm-libri-clean-100h-base-plus")
+    processor = Wav2Vec2Processor.from_pretrained("patrickvonplaten/wavlm-libri-clean-100h-base-plus")
     feature_extractor = AutoFeatureExtractor.from_pretrained(PRETRAINED_PATH)
     model = WavLMModel.from_pretrained(PRETRAINED_PATH)
     for index, (wav_path, csv_path) in enumerate(zip([args.train_wav, args.public_wav, args.private_wav],
@@ -120,11 +124,15 @@ if __name__ == "__main__":
         ## Dataset generation
         d, df = get_dataset(wav_path, pd.read_csv(csv_path, index_col=0))
         df.to_csv(f'{outpath}/{mapping.get(index)}_all.csv')
-        dset = d.map(lambda data: preprocess_function(data, feature_extractor), remove_columns="audio", batched=True)
+        dset = d.map(lambda data: preprocess_function(data, feature_extractor, t_mapping.get(index)), remove_columns="audio", batched=True)
         # Audio file is decoded on the fly
+        # for i in tqdm(range(10)):
         for i in tqdm(range(len(dset))):
             idd = dset[i]['speaker_id']
-            inputs = processor(dset[i]['input_values'], sampling_rate=16000, return_tensors="pt")
+            if mapping.get(index)=='train':
+                inputs = processor(d[i]["audio"]["array"], sampling_rate=16000, return_tensors="pt")
+            else:
+                inputs = processor(dset[i]['input_values'], sampling_rate=16000, return_tensors="pt")
             with torch.no_grad():
                 outputs = model(**inputs)
             last_hidden_states = outputs.last_hidden_state
@@ -132,9 +140,10 @@ if __name__ == "__main__":
         path = os.path.join(outpath, f'wavlm_{mapping.get(index)}_ms.json')
         with open(path, 'w') as fp:
             json.dump(data, fp)
-    ## Pretrained Wav2Vec2
+    # Pretrained Wav2Vec2
+    logging.info(f'Loding Pretrained Wav2Vec2Model')
     PRETRAINED_PATH = "superb/wav2vec2-base-superb-er"
-    processor = AutoProcessor.from_pretrained("facebook/wav2vec2-base")
+    processor = Wav2Vec2Processor.from_pretrained("facebook/wav2vec2-base")
     feature_extractor = AutoFeatureExtractor.from_pretrained(PRETRAINED_PATH)
     model = Wav2Vec2Model.from_pretrained(PRETRAINED_PATH)
     for index, (wav_path, csv_path) in enumerate(zip([args.train_wav, args.public_wav, args.private_wav],
@@ -142,11 +151,12 @@ if __name__ == "__main__":
         logging.info(f'Encoding {mapping.get(index)} audio data - Wav2Vec2')
         data = {}
         ## Dataset generation
-        d = get_dataset(wav_path, pd.read_csv(csv_path, index_col=0))
+        d, _ = get_dataset(wav_path, pd.read_csv(csv_path, index_col=0))
         dset = d.map(lambda data: preprocess_function(data, feature_extractor), remove_columns="audio", batched=True)
         # Audio file is decoded on the fly
         for i in tqdm(range(len(dset))):
             idd = dset[i]['speaker_id']
+            # inputs = processor(d[i]["audio"]["array"], sampling_rate=16000, return_tensors="pt")
             inputs = processor(dset[i]['input_values'], sampling_rate=16000, return_tensors="pt")
             with torch.no_grad():
                 outputs = model(**inputs)
