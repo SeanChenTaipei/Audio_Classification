@@ -29,7 +29,7 @@ mapping = {0:'train',
            2:'private'}
 t_mapping = {0:48000,
              1:32000, 
-             2:48000}
+             2:32000}
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument(
