@@ -8,8 +8,8 @@ conda create --name audio python=3.9
 conda activate audio
 pip install -r requirements.txt
 ```
-
-## Preprocessing
+## For reproducing, please go to Step 2 directly.
+## Step 1. Preprocessing
 
 ```bash
 python WavEncoder.py --train_wav ./Training\ Dataset/training_voice_data \
