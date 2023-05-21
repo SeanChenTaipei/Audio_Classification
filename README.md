@@ -18,13 +18,13 @@ pip install -r requirements.txt
 ---
 ## Step 1. Preprocessing (For reproducing, please jump to Step 2 directly.)
 ```bash
-python WavEncoder.py --train_wav ./Training\ Dataset/training_voice_data \
-                     --public_wav ./Public\ Testing\ Dataset/test_data_public \
-                     --private_wav ./Private\ Testing\ Dataset/test_data_private \
-                     --train_csv ./Training\ Dataset/training\ datalist.csv \
-                     --public_csv ./Public\ Testing\ Dataset/test_datalist_public.csv \
-                     --private_csv ./Private\ Testing\ Dataset/test_datalist_private.csv \
-                     --output_path ./Dataset
+python WavEncoder.py --train_wav <training_audio_directory> \
+                     --public_wav <public_audio_directory> \
+                     --private_wav <private_audio_directory> \
+                     --train_csv <training_csv_directory> \
+                     --public_csv <public_csv_directory> \
+                     --private_csv <private_csv_directory> \
+                     --output_path <output_path>
 ```
 
 ## Step 2. Reproduce private & public prediction
