@@ -1,5 +1,5 @@
 # Audio_Classification
-AI CUP 2023, Audio Classification
+AI CUP 2023, [Multimodal Pathological Voice Classification](https://tbrain.trendmicro.com.tw/Competitions/Details/27)
 
 ## Environment
 ### Hardware env
