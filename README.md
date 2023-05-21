@@ -29,13 +29,17 @@ Valid options are
 --train_csv
             The path of the training csv.
 --public_wav
-            The path ofdirectory of the training audio datas.
+            The path of directory of the training audio datas.
 --public_csv
             The path of the public csv.
 --private_wav
-            The path ofdirectory of the training audio datas.
+            The path of directory of the training audio datas.
 --private_csv
             The path of the private csv.
 --output_path
             Path to store the generation.
+```
+## Reproduce private & public prediction
+```bash
+bash ./run_reproduce.sh
 ```
