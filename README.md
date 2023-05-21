@@ -3,9 +3,11 @@ AI CUP 2023, Audio Classification
 
 ## Environment
 ### Hardware env
-- model name      : Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz
-- os              : Ubuntu 22.04.1 LTS
-- gpu             : NVIDIA GeForce GTX 1080 Ti
+| Type | Name                                      |
+| ---- |:----------------------------------------- |
+| os   | Ubuntu 22.04.1 LTS                        |
+| cpu  | Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz |
+| gpu  | NVIDIA GeForce GTX 1080 Ti                |
 ### Conda env
 ```shell
 ## If you want to run in a virtual env
