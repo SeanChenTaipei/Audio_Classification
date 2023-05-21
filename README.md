@@ -20,26 +20,8 @@ python WavEncoder.py --train_wav ./Training\ Dataset/training_voice_data \
                      --private_csv ./Private\ Testing\ Dataset/test_datalist_private.csv \
                      --output_path ./Dataset
 ```
-Valid options are
-```
--h, --help            
-            show this help message and exit
---train_wav
-            The path of directory of the training audio datas.
---train_csv
-            The path of the training csv.
---public_wav
-            The path of directory of the training audio datas.
---public_csv
-            The path of the public csv.
---private_wav
-            The path of directory of the training audio datas.
---private_csv
-            The path of the private csv.
---output_path
-            Path to store the generation.
-```
-## Reproduce private & public prediction
+
+## Step 2. Reproduce private & public prediction
 ```bash
 bash ./run_reproduce.sh
 ```
