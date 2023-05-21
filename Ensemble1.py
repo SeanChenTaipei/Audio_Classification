@@ -39,7 +39,7 @@ def parse_args() -> Namespace:
     parser.add_argument(
         "--train_wav",
         type=str,
-        default="./Dataset/wavlm_training_ms.json",
+        default="./Dataset/wavlm_train_ms.json",
         help="The path of directory of the training audio datas.")
     parser.add_argument(
         "--train_csv",
