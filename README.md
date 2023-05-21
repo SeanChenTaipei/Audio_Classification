@@ -9,8 +9,8 @@ AI CUP 2023, Audio Classification
 | cpu  | Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz |
 | gpu  | NVIDIA GeForce GTX 1080 Ti                |
 ### Conda env
+If you want to run in a virtual env,
 ```shell
-## If you want to run in a virtual env
 conda create --name audio python=3.10
 conda activate audio
 pip install -r requirements.txt
