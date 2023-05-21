@@ -29,5 +29,5 @@ if __name__ == '__main__':
     outpath = os.path.join(args.output_path, 'submission.csv')
     e2 = pd.read_csv('Result/ensemble2_proba.csv', index_col=0)
     e1 = pd.read_csv('Result/ensemble1_proba.csv', index_col=0)
-    y_pred = np.argmax(e1+e2, axis=1)+1
+    y_pred = np.argmax(e1.values + e2.values, axis=1)+1
     pd.DataFrame(y_pred, index=e1.index).to_csv(outpath, header=False)
