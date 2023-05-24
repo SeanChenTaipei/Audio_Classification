@@ -17,7 +17,7 @@ pip install -r requirements.txt
 ```
 ---
 ## Step 1. Preprocessing 
-`(For reproducing, please jump to Step 2 directly.)`
+`For reproducing, please jump to Step 2 directly.`
 ```bash
 python WavEncoder.py --train_wav <training_audio_directory> \
                      --public_wav <public_audio_directory> \
