@@ -1,5 +1,5 @@
 # Audio_Classification
-AI CUP 2023 - [Multimodal Pathological Voice Classification](https://tbrain.trendmicro.com.tw/Competitions/Details/27)
+AI CUP 2023 - [Multimodal Pathological Voice Classification](https://tbrain.trendmicro.com.tw/Competitions/Details/27) - TEAM_2907
 
 ## Environment
 ### Hardware env
