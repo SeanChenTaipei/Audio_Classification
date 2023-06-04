@@ -1,31 +1,42 @@
 import os
+import sys
 import json
-import pandas as pd
+import logging
+import warnings
 import numpy as np
-import matplotlib.pyplot as plt
-from tqdm.auto import tqdm
+import pandas as pd
+
+from copy import deepcopy
+from collections import OrderedDict
 from lightgbm import LGBMClassifier
 from tabpfn import TabPFNClassifier
 from sklearn.decomposition import PCA
-from sklearn.metrics import recall_score
-from sklearn.model_selection import train_test_split, StratifiedKFold
-from imblearn.ensemble import BalancedRandomForestClassifier, BalancedBaggingClassifier
-from argparse import ArgumentParser, Namespace
-import warnings
-import logging
-import os
-import sys
+from imblearn.ensemble import BalancedRandomForestClassifier
+from imblearn.ensemble import BalancedBaggingClassifier
 
 
-class HiddenPrints:
-    def __enter__(self):
-        self._original_stdout = sys.stdout
+BRF_PARAMS = {
+    'n_estimators': 500,
+    'class_weight': 'balanced_subsample',
+}
+
+LGBM_PARAMS = {
+    'boosting_type': 'gbdt',
+    'class_weight': 'balanced',
+    'objective': 'multiclass'
+}
+
+TAB_PARAMS = {
+    'N_ensemble_configurations': 100
+}
+
+
+def hidden_message(func):
+    def wrap(path, *args):
         sys.stdout = open(os.devnull, 'w')
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
+        func(path, *args)
         sys.stdout.close()
-        sys.stdout = self._original_stdout
-
+    return wrap
 
 warnings.simplefilter(action='ignore', category=FutureWarning)
 warnings.simplefilter(action='ignore', category=UserWarning)
@@ -33,164 +44,334 @@ warnings.simplefilter(action='ignore', category=UserWarning)
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
 
+DATA_FOLDER = "dataset"
+TRAIN_TABULAR_FILE = "tabular_train.csv"
+TRAIN_WAVLM_FILE = "wavlm_train_ms.json"
+TRAIN_WAV2VEC_FILE = "wav2vec2_train_s3prl.json"
+PUBLIC_WAVLM_FILE = "wavlm_public_ms.json"
+PUBLIC_TABULAR_FILE = "tabular_public.csv"
+PUBLIC_WAV2VEC_FILE = "wav2vec2_public_s3prl.json"
+PRIVATE_WAVLM_FILE = "wavlm_private_ms.json"
+PRIVATE_TABULAR_FILE = "tabular_private.csv"
+PRIVATE_WAV2VEC_FILE = "wav2vec2_private_s3prl.json"
+OUTPUT_FOLDER = "prediction"
+OUTPUT_FILE = "submissions.csv"
 
-def parse_args() -> Namespace:
-    parser = ArgumentParser()
-    parser.add_argument(
-        "--train_wav",
-        type=str,
-        default="./Dataset/wavlm_train_ms.json",
-        help="The path of directory of the training audio datas.")
-    parser.add_argument(
-        "--train_csv",
-        type=str,
-        default="./Dataset/train_all.csv",
-        help="The path of the training csv."
-    )
-    parser.add_argument(
-        "--public_wav",
-        type=str,
-        default="./Dataset/wavlm_public_ms.json",
-        help="The path ofdirectory of the training audio datas."
-    )
-    parser.add_argument(
-        "--public_csv",
-        type=str,
-        default="./Dataset/public_all.csv",
-        help="The path of the public csv."
-    )
-    parser.add_argument(
-        "--private_wav",
-        type=str,
-        default="./Dataset/wavlm_private_ms.json",
-        help="The  path ofdirectory of the training audio datas."
-    )
-    parser.add_argument(
-        "--private_csv",
-        type=str,
-        default="./Dataset/private_all.csv",
-        help="The path of the private csv."
-    )
-    parser.add_argument(
-        "--output_path",
-        type=str,
-        default='./Result',
-        help="Path to store the generation."
-    )
-    args = parser.parse_args()
-    return args
+TRAIN_TABULAR_PATH = os.path.join(DATA_FOLDER, TRAIN_TABULAR_FILE)
+TRAIN_WAVLM_PATH = os.path.join(DATA_FOLDER, TRAIN_WAVLM_FILE)
+TRAIN_WAV2VEC_PATH = os.path.join(DATA_FOLDER, TRAIN_WAV2VEC_FILE)
+PUBLIC_TABULAR_PATH = os.path.join(DATA_FOLDER, PUBLIC_TABULAR_FILE)
+PUBLIC_WAVLM_PATH = os.path.join(DATA_FOLDER, PUBLIC_WAVLM_FILE)
+PUBLIC_WAV2VEC_PATH = os.path.join(DATA_FOLDER, PUBLIC_WAV2VEC_FILE)
+PRIVATE_WAVLM_PATH = os.path.join(DATA_FOLDER, PRIVATE_WAVLM_FILE)
+PRIVATE_TABULAR_PATH = os.path.join(DATA_FOLDER, PRIVATE_TABULAR_FILE)
+PRIVATE_WAV2VEC_PATH = os.path.join(DATA_FOLDER, PRIVATE_WAV2VEC_FILE)
+OUTPUT_PATH = os.path.join(OUTPUT_FOLDER, OUTPUT_FILE)
+
+# model
+BRF = "brf"
+LGBM = "lgbm"
+TAB = "tab"
+BBC = "bbc"
+
+# data
+TABULAR = "tabular"
+WAVLM_ENCODE = "wavlm-encode"
+WAV2VEC_ENCODE = "wav2vec-encode"
 
 
-def load_tabular(root):
-    tabular_df = pd.read_csv(root, index_col=0)
-    tabular_df["Disease category"] = tabular_df["Disease category"] - 1
-    tabular_df = tabular_df.fillna(0)
-    return tabular_df
+TRAIN_DATA = OrderedDict([
+    (TABULAR, TRAIN_TABULAR_PATH),
+    (WAVLM_ENCODE, TRAIN_WAVLM_PATH),
+    (WAV2VEC_ENCODE, TRAIN_WAV2VEC_PATH),
+])
+
+PUBLIC_DATA = OrderedDict([
+    (TABULAR, PUBLIC_TABULAR_PATH),
+    (WAVLM_ENCODE, PUBLIC_WAVLM_PATH),
+    (WAV2VEC_ENCODE, PUBLIC_WAV2VEC_PATH),
+])
+
+PRIVATE_DATA = OrderedDict([
+    (TABULAR, PRIVATE_TABULAR_PATH),
+    (WAVLM_ENCODE, PRIVATE_WAVLM_PATH),
+    (WAV2VEC_ENCODE, PRIVATE_WAV2VEC_PATH),
+])
+
+LABEL_COLUMN = "Disease category"
 
 
-def load_audio(root, model=None):
-    with open(root, 'r') as f:
+def load_json(path):
+    with open(path, 'r') as f:
         data = json.load(f)
-    new_X = np.array(list(data.values()))
-    new_X = pd.DataFrame(new_X, index=list(data))
-    if model is not None:
-        new_X = model.fit_transform(new_X)
-        new_X = pd.DataFrame(new_X, index=list(data))
-        return new_X, model
-    else:
-        new_X = pd.DataFrame(new_X, index=list(data))
-        return new_X
+    return data
 
 
-def load_public_private(audio_root, tabular_root, model):
-    audio = load_audio(audio_root)
-    audio = model.transform(audio)
-    tabular = pd.read_csv(tabular_root, index_col=0)
-    X = np.concatenate((audio, tabular.values), axis=1)
-    X = pd.DataFrame(X, index=tabular.index)
-    X = X.fillna(0)
-    return X
+class ModelSetting():
+    def __init__(self, trans, models):
+        self.trans = trans
+        self.models = models
 
 
-def train(X, y, X_public, X_private, models, output_path=None, weights=None):
-    weights = [0.5] * len(models) if not weights else weights
-    y_prob_public = np.zeros((500, 5))
-    y_prob_private = np.zeros((500, 5))
-    for model, weight in zip(models, weights):
-        with HiddenPrints():
-            model.fit(X, y)
-        y_prob_public += model.predict_proba(X_public) * weight
-        y_prob_private += model.predict_proba(X_private) * weight
+def get_model_settings():
+    return [
+        ModelSetting(
+            trans="v1",
+            models=[
+                OrderedDict(
+                    algo='brf-bbc',
+                    brf_params=BRF_PARAMS,
+                    bbc_params={'random_state': 11}
+                ),
+                OrderedDict(
+                    algo='lgbm-bbc',
+                    lgbm_params=LGBM_PARAMS,
+                    bbc_params={'random_state': 42}
+                ),
+                OrderedDict(
+                    algo='tab-bbc',
+                    tab_params=TAB_PARAMS,
+                    bbc_params={'random_state': 42}
+                ),
+            ]
+        ),
+        ModelSetting(
+            trans="v2",
+            models=[
+                OrderedDict(
+                    algo='brf-bbc-1',
+                    brf_params=BRF_PARAMS,
+                    bbc_params={'random_state': 11},
+                    weight=0.125
+                ),
+                OrderedDict(
+                    algo='brf-bbc-2',
+                    brf_params=BRF_PARAMS,
+                    bbc_params={'random_state': 17},
+                    weight=0.125
+                ),
+                OrderedDict(
+                    algo='brf-bbc-3',
+                    brf_params=BRF_PARAMS,
+                    bbc_params={'random_state': 42},
+                    weight=0.125
+                ),
+                OrderedDict(
+                    algo='brf-bbc-4',
+                    brf_params=BRF_PARAMS,
+                    bbc_params={'random_state': 419},
+                    weight=0.125
+                ),
+                OrderedDict(
+                    algo='lgbm-bbc',
+                    lgbm_params=LGBM_PARAMS,
+                    bbc_params={'random_state': 42},
+                    weight=0.5
+                ),
+            ]
+        ),
+    ]
 
-    y_pred_public = np.argmax(y_prob_public, axis=1)
-    y_pred_private = np.argmax(y_prob_private, axis=1)
 
-    ans_public = y_pred_public + 1
-    ans_df_public = pd.DataFrame(ans_public, index=X_public.index)
+class DataPipeline():
+    def __init__(self, transform_list):
+        self.data_type = sorted(list(set([k for d in transform_list for k in d['keys']])), key=len)
+        self.transform_list = transform_list
 
-    ans_private = y_pred_private + 1
-    ans_df_private = pd.DataFrame(ans_private, index=X_private.index)
+    def concat(self, data):
+        X = []
+        for k in self.data_type:
+            if isinstance(data[k], pd.DataFrame):
+                X.append(data[k].values)
+            else:
+                X.append(data[k])
+        return np.concatenate(X, axis=1)
 
-    final_df = pd.concat((ans_df_public, ans_df_private))
+    def get_X_and_y(self, data):
+        y = data[TABULAR][LABEL_COLUMN].values - 1
+        data[TABULAR] = data[TABULAR].drop(LABEL_COLUMN, axis=1)
+        X = self.concat(data)
+        return X, y
 
-    if output_path is not None:
-        y_prob_public = pd.DataFrame(y_prob_public, index=X_public.index)
-        y_prob_private = pd.DataFrame(y_prob_private, index=X_private.index)
-        y_prob = pd.concat((y_prob_public, y_prob_private))
-        y_prob.to_csv(os.path.join(output_path, "ensemble1_proba.csv"))
+    def fit_transform(self, data):
+        data = deepcopy(data)
+        for d in self.transform_list:
+            for k in d['keys']:
+                data[k] = d['transform'].fit_transform(data[k])
+        X, y = self.get_X_and_y(data)
+        return OrderedDict(X=X, y=y, id=data[TABULAR].index)
 
-    return final_df, y_prob
+    def transform(self, data):
+        data = deepcopy(data)
+        for d in self.transform_list:
+            for k in d['keys']:
+                data[k] = d['transform'].transform(data[k])
+        X = self.concat(data)
+        return OrderedDict(X=X, y=None, id=data[TABULAR].index)
+
+
+class BaseTransform():
+    def fit_transform(self, data):
+        raise NotImplementedError
+    
+    def transform(self, data):
+        raise NotImplementedError
+
+
+class LoadTabularData(BaseTransform):
+    def __init__(self):
+        super(LoadTabularData, self).__init__()
+
+    def read_csv(self, data):
+        return pd.read_csv(data, index_col=0)
+
+    def fit_transform(self, data):
+        return self.read_csv(data)
+
+    def transform(self, data):
+        return self.read_csv(data)
+
+
+class LoadAudioData(BaseTransform):
+    def __init__(self):
+        super(LoadAudioData, self).__init__()
+
+    def fit_transform(self, data):
+        data = load_json(data).values()
+        return np.array(list(data))
+    
+    def transform(self, data):
+        data = load_json(data).values()
+        return np.array(list(data))
+
+
+class FillNa(BaseTransform):
+    def __init__(self):
+        super(FillNa, self).__init__()
+
+    def fit_transform(self, data):
+        return data.fillna(0)
+    
+    def transform(self, data):
+        return data.fillna(0)
+
+
+class EnsemblePipeline():
+    def __init__(self, pipeline_dict, weights_dict):
+        self.pipeline_dict = pipeline_dict
+        self.weights_dict = weights_dict
+
+    def predict_proba(self, X):
+        y_pred_probas = []
+        for name, pipeline in self.pipeline_dict.items():
+            proba = pipeline.predict_proba(X)
+            y_pred_probas.append(self.weights_dict[name] * proba)
+        return np.sum(y_pred_probas, axis=0)
+
+    def predict(self, X):
+        y_pred_proba = self.predict_proba(X)
+        y_pred_lab = np.argmax(y_pred_proba, axis=1) + 1  # convert to label
+        return y_pred_lab
+
+
+class Learner():
+    def __init__(self, models):
+        self.models = models
+    
+    @hidden_message
+    def init_model(self):
+        logging.info(f'Initial models')
+        pipeline_dict = OrderedDict([])
+        for model in self.models:
+            algo = model['algo']
+            if BRF in algo:
+                predictor = BalancedRandomForestClassifier(**model['brf_params'])
+            elif LGBM in algo:
+                predictor = LGBMClassifier(**model['lgbm_params'])
+            elif TAB in algo:
+                predictor = TabPFNClassifier(**model['tab_params'])
+            if BBC in algo:
+                predictor = BalancedBaggingClassifier(
+                    estimator=predictor,
+                    **model['bbc_params']
+                )
+            pipeline_dict[algo] = predictor
+
+        weights_dict = {model['algo']: model['weight'] for model in self.models} \
+                       if 'weight' in self.models[0].keys() else \
+                       {p: 1 / len(pipeline_dict) for p in pipeline_dict.keys()}
+        self.ensem_pipeline = EnsemblePipeline(pipeline_dict, weights_dict)
+        return
+
+    @hidden_message
+    def train(self, X, y):
+        logging.info(f'Training')
+        for name, predictor in self.ensem_pipeline.pipeline_dict.items():
+            predictor.fit(X, y)
+        return
+
+    def predict(self, X):
+        logging.info(f'Prediction')
+        y_pred_lab = self.ensem_pipeline.predict(X)
+        return y_pred_lab
+    
+    def predict_proba(self, X):
+        logging.info(f'Prediction')
+        y_pred_proba = self.ensem_pipeline.predict_proba(X)
+        return y_pred_proba
+
+
+
+def save_pred(path, pred_df):
+    os.makedirs(OUTPUT_FOLDER, exist_ok=True)
+    pred_df.to_csv(path)
+    return
+
+
+TRANS_LIST_v1 = [
+    OrderedDict(keys=[TABULAR], transform=LoadTabularData()),
+    OrderedDict(keys=[WAVLM_ENCODE], transform=LoadAudioData()),
+    OrderedDict(keys=[TABULAR], transform=FillNa()),
+    OrderedDict(keys=[WAVLM_ENCODE], transform=PCA(n_components=9)),
+]
+
+TRANS_LIST_v2 = [
+    OrderedDict(keys=[TABULAR], transform=LoadTabularData()),
+    OrderedDict(keys=[WAVLM_ENCODE, WAV2VEC_ENCODE], transform=LoadAudioData()),
+    OrderedDict(keys=[TABULAR], transform=FillNa()),
+    OrderedDict(keys=[WAVLM_ENCODE], transform=PCA(n_components=9)),
+    OrderedDict(keys=[WAV2VEC_ENCODE], transform=PCA(n_components=1)),
+]
+
+TRANS_LIST = {
+    "v1": TRANS_LIST_v1,
+    "v2": TRANS_LIST_v2,
+}
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    outpath = args.output_path
-    os.makedirs(outpath, exist_ok=True)
+    model_settings = get_model_settings()
+    for setting in model_settings:
+        trans_list = TRANS_LIST[setting.trans]
+        models = setting.models
 
-    # load traing data
-    logging.info(f'Loding training Data')
-    tabular_df = load_tabular(args.train_csv)
-    tabular_X = tabular_df.drop("Disease category", axis=1)
-    y = tabular_df["Disease category"]
-    pca = PCA(n_components=9)
-    audio_df, pca = load_audio(args.train_wav, model=pca)
-    X = np.concatenate((audio_df.values, tabular_X.values), axis=1)
-    X = pd.DataFrame(X, index=audio_df.index)
+        data_pipeline = DataPipeline(trans_list)
+        train_data = data_pipeline.fit_transform(TRAIN_DATA)
+        public_data = data_pipeline.transform(PUBLIC_DATA)
+        private_data = data_pipeline.transform(PRIVATE_DATA)
 
-    # load public and private data
-    logging.info(f'Loding Public and Private Data')
-    X_public = load_public_private(args.public_wav, args.public_csv, pca)
-    X_private = load_public_private(args.private_wav, args.private_csv, pca)
+        learner = Learner(models=models)
+        learner.init_model()
+        learner.train(train_data['X'], train_data['y'])
 
-    # construct models
-    logging.info(f'Constructing Models')
-    brf = BalancedRandomForestClassifier(
-        n_estimators=500, class_weight="balanced_subsample")
-    bbc_brf = BalancedBaggingClassifier(
-        estimator=brf,
-        random_state=11,
-    )
-    lgb = LGBMClassifier()
-    bbc_lgb = BalancedBaggingClassifier(
-        estimator=lgb,
-        random_state=42
-    )
-    with HiddenPrints():
-        tab = TabPFNClassifier(N_ensemble_configurations=100)
-    bbc_tab = BalancedBaggingClassifier(
-        estimator=tab,
-        random_state=42
-    )
+        public_pred_proba = learner.predict_proba(public_data['X'])
+        private_pred_proba = learner.predict_proba(private_data['X'])
 
-    # train model
-    logging.info(f'Training Model')
-    weights = [1 / 3, 1 / 3, 1 / 3]
-    final_df, y_prob = train(
-        X,
-        y,
-        X_public,
-        X_private,
-        [bbc_brf, bbc_lgb, bbc_tab],
-        weights=weights,
-        output_path=args.output_path
-    )
+        pred_df = pd.concat([
+            pd.DataFrame(public_pred_proba, index=public_data['id']),
+            pd.DataFrame(private_pred_proba, index=private_data['id']),
+        ])
+
+        if OUTPUT_PATH is not None:
+            save_name = f"trans={setting.trans}_model={'_'.join([m['algo'] for m in models])}.csv"
+            save_pred(os.path.join(OUTPUT_FOLDER, save_name), pred_df)

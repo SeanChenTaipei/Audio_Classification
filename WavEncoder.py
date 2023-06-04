@@ -1,82 +1,95 @@
 import os
 import json
-import pandas as pd
-import numpy as np
 import math
-import os
 import random
 import scipy
+import torch
+import logging
+import librosa
+
+import numpy as np
+import pandas as pd
 
 from tqdm import tqdm
 from pathlib import Path
-
-import librosa
-import torch
 from typing import List, Dict, Any, Union
+from collection import OrderedDict
 
-from datasets import load_dataset, Dataset, DatasetDict, load_from_disk
-from transformers.data.data_collator import DataCollatorWithPadding
-from transformers import AutoProcessor, AutoFeatureExtractor, AutoConfig, PreTrainedModel, TrainingArguments, Trainer, Wav2Vec2Model, Wav2Vec2FeatureExtractor, WavLMModel, Wav2Vec2Processor
-from sklearn.metrics import accuracy_score, recall_score, confusion_matrix, balanced_accuracy_score
 from pathlib import Path
 from argparse import ArgumentParser, Namespace
-import logging
+from datasets import load_dataset, Dataset, DatasetDict, load_from_disk
+from sklearn.metrics import accuracy_score, recall_score, confusion_matrix, balanced_accuracy_score
+from librosa.feature import spectral_contrast, spectral_flatness, spectral_rolloff
+
+from transformers.data.data_collator import DataCollatorWithPadding
+from transformers import AutoProcessor, AutoFeatureExtractor, AutoConfig, PreTrainedModel, TrainingArguments, Trainer, Wav2Vec2Model, Wav2Vec2FeatureExtractor, WavLMModel, Wav2Vec2Processor
+
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
-mapping = {0:'train',
-           1:'public', 
-           2:'private'}
-t_mapping = {0:48000,
-             1:32000, 
-             2:32000}
+mapping = {
+    0: 'train',
+    1: 'public', 
+    2: 'private'
+}
+
+t_mapping = {
+    0: 48000,
+    1: 32000, 
+    2: 32000
+}
+
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument(
-        "--train_wav", type=str, default=None, help="The path of directory of the training audio datas."
+        "--train_wav", type=str, default=None,
+        help="The path of directory of the training audio datas."
     )
     parser.add_argument(
-        "--train_csv", type=str, default=None, help="The path of the training csv."
+        "--train_csv", type=str, default=None,
+        help="The path of the training csv."
     )
     parser.add_argument(
-        "--public_wav", type=str, default=None, help="The path ofdirectory of the training audio datas."
+        "--public_wav", type=str, default=None,
+        help="The path ofdirectory of the training audio datas."
     )
     parser.add_argument(
-        "--public_csv", type=str, default=None, help="The path of the public csv."
+        "--public_csv", type=str, default=None,
+        help="The path of the public csv."
     )
     parser.add_argument(
-        "--private_wav", type=str, default=None, help="The  path ofdirectory of the training audio datas."
+        "--private_wav", type=str, default=None,
+        help="The path ofdirectory of the training audio datas."
     )
     parser.add_argument(
-        "--private_csv", type=str, default=None, help="The path of the private csv."
+        "--private_csv", type=str, default=None,
+        help="The path of the private csv."
     )
     parser.add_argument(
-        "--output_path", type=str, default='./', help="Path to store the generation."
+        "--output_path", type=str, default='./',
+        help="Path to store the generation."
     )
     args = parser.parse_args()
+
     return args
+
+
 def describe_freq(x):
     freqs = np.fft.fftfreq(x.size)
-    data = dict(
-        mean = np.mean(freqs),
-        # std = np.std(freqs),
-        # maxv = np.amax(freqs), 
-        # minv = np.amin(freqs), 
-        median = np.median(freqs),
-        skew = scipy.stats.skew(freqs),
-        # kurt = scipy.stats.kurtosis(freqs),
-        # q1 = np.quantile(freqs, 0.25),
-        # q3 = np.quantile(freqs, 0.75),
-        # mode = scipy.stats.mode(freqs)[0][0],
-        # iqr = scipy.stats.iqr(freqs),
-        # bandwidth=librosa.feature.spectral_bandwidth(y=x, sr=16000).mean(),
-        contrast=librosa.feature.spectral_contrast(y=x, sr=16000).mean(),
-        flatness=librosa.feature.spectral_flatness(y=x).mean(),
-        rolloff=librosa.feature.spectral_rolloff(y=x, sr=16000).mean())
     p1, p2 = librosa.feature.poly_features(y=x, sr=16000).mean(axis=1)
-    data['p1']=p1
-    data['p2']=p2
-    return data
+    freq_stat = OrderedDict([
+        ('mean', np.mean(freqs)),
+        ('median', np.median(freqs)),
+        ('skew', scipy.stats.skew(freqs)),
+        ('contrast', spectral_contrast(y=x, sr=16000).mean()),
+        ('flatness', spectral_flatness(y=x).mean()),
+        ('rolloff', spectral_rolloff(y=x, sr=16000).mean()),
+        ('p1', p1),
+        ('p2', p2),
+    ])
+    return freq_stat
+
+
 def get_dataset(path: str, df_MH: pd.DataFrame) -> Dataset:
     datalist = []
     metalist=[]
@@ -92,7 +105,9 @@ def get_dataset(path: str, df_MH: pd.DataFrame) -> Dataset:
         datalist.append(data)   
         metalist.append(describe_freq(sample)) 
     stats = pd.DataFrame(metalist, index=id_list)
+
     return Dataset.from_list(datalist), df_MH.join(stats).fillna(0)
+
 
 def preprocess_function(data, feature_extractor, max_len=48000):
     audio_arrays = [x["array"] for x in data["audio"]]
@@ -105,6 +120,7 @@ def preprocess_function(data, feature_extractor, max_len=48000):
         return_tensors="pt"
     )
     return inputs
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -126,20 +142,25 @@ if __name__ == "__main__":
         df.to_csv(f'{outpath}/{mapping.get(index)}_all.csv')
         dset = d.map(lambda data: preprocess_function(data, feature_extractor, t_mapping.get(index)), remove_columns="audio", batched=True)
         # Audio file is decoded on the fly
-        # for i in tqdm(range(10)):
-        for i in tqdm(range(len(dset))):
+
+        for i, data in tqdm(enumerate(dset)):
             idd = dset[i]['speaker_id']
             if mapping.get(index)=='train':
                 inputs = processor(d[i]["audio"]["array"], sampling_rate=16000, return_tensors="pt")
             else:
                 inputs = processor(dset[i]['input_values'], sampling_rate=16000, return_tensors="pt")
+
             with torch.no_grad():
                 outputs = model(**inputs)
+
             last_hidden_states = outputs.last_hidden_state
+
             data[idd] = last_hidden_states.squeeze().mean(dim=0).tolist()
         path = os.path.join(outpath, f'wavlm_{mapping.get(index)}_ms.json')
+
         with open(path, 'w') as fp:
             json.dump(data, fp)
+
     # Pretrained Wav2Vec2
     logging.info(f'Loding Pretrained Wav2Vec2Model')
     PRETRAINED_PATH = "superb/wav2vec2-base-superb-er"
@@ -163,5 +184,6 @@ if __name__ == "__main__":
             last_hidden_states = outputs.last_hidden_state
             data[idd] = last_hidden_states.squeeze().mean(dim=0).tolist()
         path = os.path.join(outpath, f'wav2vec2_{mapping.get(index)}_s3prl.json')
+
         with open(path, 'w') as fp:
             json.dump(data, fp)

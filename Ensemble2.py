@@ -34,48 +34,54 @@ from imblearn.ensemble import BalancedRandomForestClassifier
 # Logger & Parser
 from argparse import ArgumentParser, Namespace
 import logging
+
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
 warnings.simplefilter(action='ignore')
 
 # Dataset path
-TRAIN_CSV = "train_all.csv"
-PUBLIC_CSV = "public_all.csv"
-PRIVATE_CSV = "private_all.csv"
+TRAIN_CSV = "tabular_train.csv"
+PUBLIC_CSV = "tabular_public.csv"
+PRIVATE_CSV = "tabular_private.csv"
 TRAIN_WLM = "wavlm_train_ms.json"
 PUBLIC_WLM = "wavlm_public_ms.json"
 PRIVATE_WLM = "wavlm_private_ms.json"
 TRAIN_W2V = "wav2vec2_train_s3prl.json"
 PUBLIC_W2V = "wav2vec2_public_s3prl.json"
 PRIVATE_W2V = "wav2vec2_private_s3prl.json"
+
 # Base estimators
 lgb_param = {
-            'boosting_type': 'gbdt',
-            'class_weight': 'balanced',
-            'objective': 'multiclass'
-            }
+    'boosting_type': 'gbdt',
+    'class_weight': 'balanced',
+    'objective': 'multiclass'
+}
 brf_param = {
-            'n_estimators': 500,
-            'class_weight': 'balanced_subsample',
-            }
+    'n_estimators': 500,
+    'class_weight': 'balanced_subsample',
+}
 random_states = [11, 42, 17, 419]
-weights = [1/8, 1/8, 1/8, 1/8, 1/2]
+weights = [0.125, 0.125, 0.125, 0.125, 0.5]
 lgb = LGBMClassifier(**lgb_param)
-brf = BalancedRandomForestClassifier(**brf_param)
+# brf = BalancedRandomForestClassifier(**brf_param)
+
 # Ensembles
-models = [BBC(estimator=brf, random_state=s) for s in random_states] + [BBC(estimator=lgb, random_state=42)]
+models = [BBC(estimator=BalancedRandomForestClassifier(**brf_param), random_state=s) for s in random_states] + [BBC(estimator=lgb, random_state=42)]
 
 
 def parse_args() -> Namespace:
     parser = ArgumentParser()
     parser.add_argument(
-        "--data_path", type=str, default='./Dataset', help="Path to dataset."
+        "--data_path", type=str, default='./Dataset',
+        help="Path to dataset."
     )
     parser.add_argument(
-        "--output_path", type=str, default='./Result', help="Path to store the generation."
+        "--output_path", type=str, default='./Result',
+        help="Path to store the generation."
     )
-    args = parser.parse_args()
-    return args
+    return parser.parse_args()
+
+
 def dimension_reduction(train, public, private, method='PCA', prefix='w2v', n_comp=20, plot=True):
     with open(train, 'r') as f:
         data = json.load(f)
@@ -83,6 +89,7 @@ def dimension_reduction(train, public, private, method='PCA', prefix='w2v', n_co
         public = json.load(f)
     with open(private, 'r') as f:
         private = json.load(f)
+
     name = list(data.keys())
     data = np.array(list(data.values()))
     public_name = list(public.keys())
@@ -92,8 +99,8 @@ def dimension_reduction(train, public, private, method='PCA', prefix='w2v', n_co
     if method == 'PCA':
         ## PCA
         pca = PCA(n_components=n_comp)
-        latent_vec = pca.fit_transform(np.vstack([data, public]))[:1000]
-        # latent_vec = pca.fit_transform(data)
+        # latent_vec = pca.fit_transform(np.vstack([data, public]))[:1000]
+        latent_vec = pca.fit_transform(data)
         public_latent = pca.transform(public)
         private_latent = pca.transform(private)
     else:
@@ -110,6 +117,8 @@ def dimension_reduction(train, public, private, method='PCA', prefix='w2v', n_co
     df_public = pd.DataFrame(public_latent, index=public_name, columns=cols)
     df_private = pd.DataFrame(private_latent, index=private_name, columns=cols)
     return df_train, df_public, df_private
+
+
 def voting(models, train, test, weight):
     df, label = train
     n = len(models)
@@ -117,8 +126,8 @@ def voting(models, train, test, weight):
     logging.info("Ensemble2: Generate Prediction")
     for i, m in enumerate(tqdm(models)):
         m.fit(df, label)
-        y+=m.predict_proba(test)*weight[i]
-    return np.argmax(y, axis=1)+1, y
+        y += m.predict_proba(test)*weight[i]
+    return np.argmax(y, axis=1) + 1, y
 
 
 if __name__ == '__main__':
