@@ -1,13 +1,1 @@
-audio/
-.ipynb_checkpoints/
 __pycache__/
-.DS_Store
-.vscode/
-# Dataset Folders
-Private_Testing_Dataset/
-Public_Testing_Dataset/
-Training_Dataset/
-
-# ipynb
-*.ipynb
-
