@@ -6,32 +6,38 @@ from dataset import Dataset
 class TestDataset(unittest.TestCase):
     def setUp(self):
         self.data1 = {
-            "X": np.array([
-                [1, 2],
-                [3, 4],
-                [5, 6],
-            ]),
+            "X": np.array(
+                [
+                    [1, 2],
+                    [3, 4],
+                    [5, 6],
+                ]
+            ),
             "y": np.array([7, 8, 9]),
             "ids": np.array(["1", "2", "3"]),
         }
         self.data2 = {
-            "X": np.array([
-                [7, 8],
-                [9, 10],
-                [11, 12],
-            ]),
+            "X": np.array(
+                [
+                    [7, 8],
+                    [9, 10],
+                    [11, 12],
+                ]
+            ),
             "y": np.array([13, 14, 15]),
             "ids": np.array(["4", "5", "6"]),
         }
         self.desired_data = {
-            "X": np.array([
-                [1, 2],
-                [3, 4],
-                [5, 6],
-                [7, 8],
-                [9, 10],
-                [11, 12],
-            ]),
+            "X": np.array(
+                [
+                    [1, 2],
+                    [3, 4],
+                    [5, 6],
+                    [7, 8],
+                    [9, 10],
+                    [11, 12],
+                ]
+            ),
             "y": np.array([7, 8, 9, 13, 14, 15]),
             "ids": np.array(["1", "2", "3", "4", "5", "6"]),
         }

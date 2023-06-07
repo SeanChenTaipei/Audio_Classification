@@ -7,10 +7,10 @@ from utils import load_json
 from constant import TABULAR, WAVLM_ENCODE, WAV2VEC_ENCODE
 
 
-class BaseTransform():
+class BaseTransform:
     def fit_transform(self, data):
         raise NotImplementedError
-    
+
     def transform(self, data):
         raise NotImplementedError
 
@@ -36,7 +36,7 @@ class LoadAudioData(BaseTransform):
     def fit_transform(self, data):
         data = load_json(data).values()
         return np.array(list(data))
-    
+
     def transform(self, data):
         data = load_json(data).values()
         return np.array(list(data))
@@ -48,7 +48,7 @@ class FillNa(BaseTransform):
 
     def fit_transform(self, data):
         return data.fillna(0)
-    
+
     def transform(self, data):
         return data.fillna(0)
 

@@ -6,7 +6,7 @@ from dataset import Dataset
 from constant import TABULAR, LABEL_COLUMN
 
 
-class DataPipeline():
+class DataPipeline:
     def __init__(self, transform_list):
         self.data_type = sorted(list(set([t[0] for t in transform_list])), key=len)
         self.transform_list = transform_list
@@ -46,7 +46,7 @@ class DataPipeline():
         return Dataset(X=X, y=None, ids=data[TABULAR].index)
 
 
-class EnsemblePipeline():
+class EnsemblePipeline:
     def __init__(self, pipeline_dict, weights_dict):
         self.pipeline_dict = pipeline_dict
         self.weights_dict = weights_dict

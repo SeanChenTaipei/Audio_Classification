@@ -19,16 +19,14 @@ from constant import TABULAR, WAVLM_ENCODE, WAV2VEC_ENCODE
 from constant import BRF, LGBM, TAB, BBC
 
 
-
-warnings.simplefilter(action='ignore', category=FutureWarning)
-warnings.simplefilter(action='ignore', category=UserWarning)
+warnings.simplefilter(action="ignore", category=FutureWarning)
+warnings.simplefilter(action="ignore", category=UserWarning)
 
 logging.basicConfig()
 logging.getLogger().setLevel(logging.INFO)
 
 
-
-class ModelSetting():
+class ModelSetting:
     def __init__(self, trans, models):
         self.trans = trans
         self.models = models
@@ -40,9 +38,9 @@ def get_model_settings():
             trans="v1",
             models=[
                 OrderedDict(
-                    algo='brf-bbc',
+                    algo="brf-bbc",
                     brf_params=BRF_PARAMS,
-                    bbc_params={'random_state': 11}
+                    bbc_params={"random_state": 11},
                 ),
                 # OrderedDict(
                 #     algo='lgbm-bbc',
@@ -54,16 +52,16 @@ def get_model_settings():
                 #     tab_params=TAB_PARAMS,
                 #     bbc_params={'random_state': 42}
                 # ),
-            ]
+            ],
         ),
         ModelSetting(
             trans="v2",
             models=[
                 OrderedDict(
-                    algo='brf-bbc-1',
+                    algo="brf-bbc-1",
                     brf_params=BRF_PARAMS,
-                    bbc_params={'random_state': 11},
-                    weight=0.125
+                    bbc_params={"random_state": 11},
+                    weight=0.125,
                 ),
                 # OrderedDict(
                 #     algo='brf-bbc-2',
@@ -89,9 +87,10 @@ def get_model_settings():
                 #     bbc_params={'random_state': 42},
                 #     weight=0.5
                 # ),
-            ]
+            ],
         ),
     ]
+
 
 def save_pred(path, pred_df):
     os.makedirs(OUTPUT_FOLDER, exist_ok=True)
