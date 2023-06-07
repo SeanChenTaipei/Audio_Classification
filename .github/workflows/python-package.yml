@@ -29,4 +29,4 @@ jobs:
         flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
     - name: Run unit test code
       run: |
-        bash .\script\run_all_unit_test.sh 
+        bash script/run_all_unit_test.sh 
