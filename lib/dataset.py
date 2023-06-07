@@ -1,11 +1,15 @@
 import numpy as np
+from pdict import PDict
+from sklearn.utils import check_array
 
 
-class Dataset(object):
-    def __init__(self, X, y, ids):
-        self.X = X
-        self.y = y
-        self.ids = ids
+class Dataset(PDict):
+    def __init__(self, **kwargs):
+        for key, value in kwargs.items():
+            kwargs[key] = check_array(value, dtype=None, ensure_2d=False)
+            kwargs[key].setflags(write=False)  # assure immutability within numpy array
+            assert kwargs[key].shape[0] == list(kwargs.values())[0].shape[0]
+        super().__init__(**kwargs)
 
     @staticmethod
     def merge(d1, d2):
