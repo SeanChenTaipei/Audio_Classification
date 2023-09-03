@@ -1,5 +1,7 @@
-# Audio_Classification
+# Audio Classification
 AI CUP 2023 - [Multimodal Pathological Voice Classification](https://tbrain.trendmicro.com.tw/Competitions/Details/27) - TEAM_2907
+
+<img width="633" alt="CleanShot 2023-09-03 at 17 30 45@2x" src="https://github.com/jwliao1209/Audio-Classification/assets/55970911/03aae843-789e-47fb-8fc3-87727e73e9ec">
 
 ## Environment
 ### Hardware env
@@ -16,7 +18,7 @@ conda activate audio
 pip install -r requirements.txt
 ```
 ---
-## Step 1. Preprocessing 
+## Step 1. Preprocessing
 `For reproducing, please jump to Step 2 directly.`
 ```bash
 python WavEncoder.py --train_wav <training_audio_directory> \
