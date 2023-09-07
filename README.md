@@ -43,7 +43,7 @@ bash ./run_reproduce.sh
 ```
 
 ## Operating system and device
-We develop the code on Ubuntu 22.04.1 LTS operating system and use python 3.9.15 version. All trainings are performed on a server with Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz and NVIDIA GeForce GTX 1080 Ti GPU.
+We develop the code on Ubuntu 22.04.1 LTS operating system and use python 3.10 version. All trainings are performed on a server with Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz and NVIDIA GeForce GTX 1080 Ti GPU.
 
 
 ## Citation
