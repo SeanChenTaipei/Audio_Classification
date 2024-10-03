@@ -1,6 +1,7 @@
 import numpy as np
-from pdict import PDict
 from sklearn.utils import check_array
+
+from src.pdict import PDict
 
 
 class Dataset(PDict):

@@ -1,10 +1,9 @@
 import numpy as np
 import pandas as pd
-
 from sklearn.decomposition import PCA
 
-from utils import load_json
-from constant import TABULAR, WAVLM_ENCODE, WAV2VEC_ENCODE
+from src.constant import TABULAR, WAVLM_ENCODE, WAV2VEC_ENCODE
+from src.utils import read_json
 
 
 class BaseTransform:
@@ -34,11 +33,11 @@ class LoadAudioData(BaseTransform):
         super(LoadAudioData, self).__init__()
 
     def fit_transform(self, data):
-        data = load_json(data).values()
+        data = read_json(data).values()
         return np.array(list(data))
 
     def transform(self, data):
-        data = load_json(data).values()
+        data = read_json(data).values()
         return np.array(list(data))
 
 

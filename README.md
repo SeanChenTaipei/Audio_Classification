@@ -1,10 +1,16 @@
 # Audio Classification
 This is a competition from [AI CUP 2023](https://tbrain.trendmicro.com.tw/Competitions/Details/27). We are TEAM_2907.
 
+
 ## Proposed Pipeline
 <img width="633" alt="CleanShot 2023-09-03 at 17 30 45@2x" src="https://github.com/jwliao1209/Audio-Classification/assets/55970911/03aae843-789e-47fb-8fc3-87727e73e9ec">
 
+
 ## Requirements
+```
+pip install -r requirements.txt
+```
+
 ### Software
 If you want to run in a virtual environment,
 ```shell
@@ -20,21 +26,24 @@ pip install -r requirements.txt
 | cpu  | Intel(R) Xeon(R) CPU E5-2690 v3 @ 2.60GHz |
 | gpu  | NVIDIA GeForce GTX 1080 Ti                |
 
+
 ## Data Preprocessing
 ```bash
-python WavEncoder.py --train_wav <training_audio_directory> \
-                     --public_wav <public_audio_directory> \
-                     --private_wav <private_audio_directory> \
-                     --train_csv <training_csv_directory> \
-                     --public_csv <public_csv_directory> \
-                     --private_csv <private_csv_directory> \
-                     --output_path <output_path>
+python process_data.py
 ```
 
-## Reproduce
+
+## Training
 ```bash
-bash ./run_reproduce.sh
+bash train.py
 ```
+
+
+## Inference
+```
+python inference.py
+```
+
 
 ## Citation
 ```
