@@ -13,6 +13,8 @@ PUBLIC_WAV2VEC_FILE = "wav2vec2_public_s3prl.json"
 PRIVATE_WAVLM_FILE = "wavlm_private_ms.json"
 PRIVATE_TABULAR_FILE = "tabular_private.csv"
 PRIVATE_WAV2VEC_FILE = "wav2vec2_private_s3prl.json"
+CHECKPOINTS = "checkpoints"
+CONFIG_FILE = "config.json"
 OUTPUT_FOLDER = "prediction"
 OUTPUT_FILE = "submissions.csv"
 
@@ -60,5 +62,8 @@ PRIVATE_DATA = OrderedDict(
 # model
 BRF = "brf"
 LGBM = "lgbm"
-TAB = "tab"
+TABPFN = "tabpfn"
 BBC = "bbc"
+BRF_BBC = "brf-bbc"
+LGBM_BBC = "lgbm-bbc"
+TABPFN_BBC = "tabpfn-bbc"
